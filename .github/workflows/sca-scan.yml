@@ -41,8 +41,8 @@ jobs:
         id: date
         run: echo "date=$(date +%F)" >> "$GITHUB_OUTPUT"
 
-      - name: Cache NVD database
-        uses: actions/cache@v4
+      - name: Restore NVD database cache
+        uses: actions/cache/restore@v4
         with:
           path: ~/odc-data
           key: odc-data-${{ steps.date.outputs.date }}
@@ -53,10 +53,10 @@ jobs:
         run: |
           V=13.0.0
           for base in dependency-check/DependencyCheck jeremylong/DependencyCheck; do
-            if curl -fSL --retry 3 --retry-delay 5 -o dc.zip "https://github.com/$base/releases/download/v$V/dependency-check-$V-release.zip"; then break; fi
+            if curl -fSL --retry 3 --retry-delay 5 -o "$RUNNER_TEMP/dc.zip" "https://github.com/$base/releases/download/v$V/dependency-check-$V-release.zip"; then break; fi
           done
-          ls -la dc.zip
-          unzip -q dc.zip -d "$HOME/odc"
+          ls -la "$RUNNER_TEMP/dc.zip"
+          unzip -q "$RUNNER_TEMP/dc.zip" -d "$HOME/odc"
 
       - name: Run Dependency-Check (Quality Gate CVSS >= 7)
         env:
@@ -76,6 +76,13 @@ jobs:
             --nvdApiKey "$NVD_API_KEY" \
             --nvdApiDelay 6000 \
             --nvdMaxRetryCount 20
+
+      - name: Save NVD database cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ~/odc-data
+          key: odc-data-${{ steps.date.outputs.date }}
 
       - name: Summary
         if: always()
